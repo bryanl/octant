@@ -101,13 +101,13 @@ jobs:
           ./build/octant version
       - name: Upload web/rice-box.go
         if: matrix.platform == 'ubuntu-latest'
-        uses: actions/upload-artifact@2.1.0
+        uses: actions/upload-artifact@v2.1.2
         with:
           name: rice-web
           path: web/rice-box.go
       - name: Upload pkg/plugin/rice-box.go
         if: matrix.platform == 'ubuntu-latest'
-        uses: actions/upload-artifact@2.1.0
+        uses: actions/upload-artifact@v2.1.2
         with:
           name: rice-plugin
           path: pkg/plugin/rice-box.go
