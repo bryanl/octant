@@ -1,7 +1,10 @@
 package astikit
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +16,8 @@ import (
 	"sync"
 	"time"
 )
+
+var ErrHTTPSenderUnmarshaledError = errors.New("astikit: unmarshaled error")
 
 // ServeHTTPOptions represents serve options
 type ServeHTTPOptions struct {
@@ -74,7 +79,7 @@ type HTTPSender struct {
 }
 
 // HTTPSenderRetryFunc is a function that decides whether to retry an HTTP request
-type HTTPSenderRetryFunc func(name string, resp *http.Response) bool
+type HTTPSenderRetryFunc func(resp *http.Response) error
 
 // HTTPSenderOptions represents HTTPSender options
 type HTTPSenderOptions struct {
@@ -105,12 +110,11 @@ func NewHTTPSender(o HTTPSenderOptions) (s *HTTPSender) {
 	return
 }
 
-func (s *HTTPSender) defaultHTTPRetryFunc(name string, resp *http.Response) bool {
+func (s *HTTPSender) defaultHTTPRetryFunc(resp *http.Response) error {
 	if resp.StatusCode >= http.StatusInternalServerError {
-		s.l.Debugf("astikit: invalid status code %d when sending %s", resp.StatusCode, name)
-		return true
+		return fmt.Errorf("astikit: invalid status code %d", resp.StatusCode)
 	}
-	return false
+	return nil
 }
 
 // Send sends a new *http.Request
@@ -148,26 +152,24 @@ func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (
 		tries++
 
 		// Send request
-		var retry bool
 		s.l.Debugf("astikit: sending %s", nr)
 		if resp, err = s.client.Do(req); err != nil {
-			// If error is temporary, retry
-			if netError, ok := err.(net.Error); ok && netError.Temporary() {
-				s.l.Debugf("astikit: temporary error when sending %s", nr)
-				retry = true
-			} else {
+			// Retry if error is temporary, stop here otherwise
+			if netError, ok := err.(net.Error); !ok || !netError.Temporary() {
 				err = fmt.Errorf("astikit: sending %s failed: %w", nr, err)
 				return
 			}
 		} else if err = req.Context().Err(); err != nil {
 			err = fmt.Errorf("astikit: request context failed: %w", err)
 			return
+		} else {
+			err = s.retryFunc(resp)
 		}
 
 		// Retry
-		if retry || s.retryFunc(nr, resp) {
+		if err != nil {
 			if retriesLeft > 1 {
-				s.l.Debugf("astikit: sleeping %s and retrying... (%d retries left)", s.retrySleep, retriesLeft-1)
+				s.l.Errorf("astikit: sending %s failed, sleeping %s and retrying... (%d retries left): %w", nr, s.retrySleep, retriesLeft-1, err)
 				time.Sleep(s.retrySleep)
 			}
 			continue
@@ -179,6 +181,74 @@ func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (
 
 	// Max retries limit reached
 	err = fmt.Errorf("astikit: sending %s failed after %d tries: %w", name, tries, err)
+	return
+}
+
+// HTTPSendJSONOptions represents SendJSON options
+type HTTPSendJSONOptions struct {
+	BodyError interface{}
+	BodyIn    interface{}
+	BodyOut   interface{}
+	Headers   map[string]string
+	Method    string
+	URL       string
+}
+
+// SendJSON sends a new JSON HTTP request
+func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
+	// Marshal body in
+	var bi io.Reader
+	if o.BodyIn != nil {
+		bb := &bytes.Buffer{}
+		if err = json.NewEncoder(bb).Encode(o.BodyIn); err != nil {
+			err = fmt.Errorf("astikit: marshaling body in failed: %w", err)
+			return
+		}
+		bi = bb
+	}
+
+	// Create request
+	var req *http.Request
+	if req, err = http.NewRequest(o.Method, o.URL, bi); err != nil {
+		err = fmt.Errorf("astikit: creating request failed: %w", err)
+		return
+	}
+
+	// Add headers
+	for k, v := range o.Headers {
+		req.Header.Set(k, v)
+	}
+
+	// Send request
+	var resp *http.Response
+	if resp, err = s.Send(req); err != nil {
+		err = fmt.Errorf("astikit: sending request failed: %w", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Process status code
+	if code := resp.StatusCode; code < 200 || code > 299 {
+		// Try unmarshaling error
+		if o.BodyError != nil {
+			if err2 := json.NewDecoder(resp.Body).Decode(o.BodyError); err2 == nil {
+				err = ErrHTTPSenderUnmarshaledError
+				return
+			}
+		}
+
+		// Default error
+		err = fmt.Errorf("astikit: invalid status code %d", code)
+		return
+	}
+
+	// Unmarshal body out
+	if o.BodyOut != nil {
+		if err = json.NewDecoder(resp.Body).Decode(o.BodyOut); err != nil {
+			err = fmt.Errorf("astikit: unmarshaling failed: %w", err)
+			return
+		}
+	}
 	return
 }
 

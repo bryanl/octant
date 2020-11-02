@@ -11,38 +11,44 @@ import (
 	"time"
 )
 
+// Stat names
+const (
+	StatNameWorkRatio = "astikit.work.ratio"
+)
+
 // Chan constants
 const (
+	// Calling Add() only blocks if the chan has been started and the ctx
+	// has not been canceled
 	ChanAddStrategyBlockWhenStarted = "block.when.started"
-	ChanAddStrategyNoBlock          = "no.block"
-	ChanOrderFIFO                   = "fifo"
-	ChanOrderFILO                   = "filo"
+	// Calling Add() never blocks
+	ChanAddStrategyNoBlock = "no.block"
+	ChanOrderFIFO          = "fifo"
+	ChanOrderFILO          = "filo"
 )
 
 // Chan is an object capable of executing funcs in a specific order while controlling the conditions
 // in which adding new funcs is blocking
 // Check out ChanOptions for detailed options
 type Chan struct {
-	cancel   context.CancelFunc
-	c        *sync.Cond
-	ctx      context.Context
-	fs       []func()
-	mc       *sync.Mutex // Locks ctx
-	mf       *sync.Mutex // Locks fs
-	o        ChanOptions
-	running  uint32
-	statWait *DurationPercentageStat
+	cancel        context.CancelFunc
+	c             *sync.Cond
+	ctx           context.Context
+	fs            []func()
+	mc            *sync.Mutex // Locks ctx
+	mf            *sync.Mutex // Locks fs
+	o             ChanOptions
+	running       uint32
+	statWorkRatio *DurationPercentageStat
 }
 
 // ChanOptions are Chan options
 type ChanOptions struct {
-	// Determines the conditions in which adding new funcs is blocking.
-	// Possible strategies are :
-	//   - calling Add() never blocks (default). Use the ChanAddStrategyNoBlock constant.
-	//   - calling Add() only blocks if the chan has been started and the ctx
-	//     has not been canceled. Use the ChanAddStrategyBlockWhenStarted constant.
+	// Determines the conditions in which Add() blocks. See constants with pattern ChanAddStrategy*
+	// Default is ChanAddStrategyNoBlock
 	AddStrategy string
-	// Order in which the funcs will be processed. See constants with the pattern ChanOrder*
+	// Order in which the funcs will be processed. See constants with pattern ChanOrder*
+	// Default is ChanOrderFIFO
 	Order string
 	// By default the funcs not yet processed when the context is cancelled are dropped.
 	// If "ProcessAll" is true,  ALL funcs are processed even after the context is cancelled.
@@ -108,13 +114,7 @@ func (c *Chan) Start(ctx context.Context) {
 
 			// No funcs in buffer
 			if l == 0 {
-				if c.statWait != nil {
-					c.statWait.Begin()
-				}
 				c.c.Wait()
-				if c.statWait != nil {
-					c.statWait.End()
-				}
 				c.c.L.Unlock()
 				continue
 			}
@@ -126,7 +126,13 @@ func (c *Chan) Start(ctx context.Context) {
 			c.mf.Unlock()
 
 			// Execute func
+			if c.statWorkRatio != nil {
+				c.statWorkRatio.Begin()
+			}
 			fn()
+			if c.statWorkRatio != nil {
+				c.statWorkRatio.End()
+			}
 
 			// Remove first func
 			c.mf.Lock()
@@ -199,16 +205,17 @@ func (c *Chan) Reset() {
 // AddStats adds stats to the stater
 func (c *Chan) AddStats(s *Stater) {
 	// Create stats
-	if c.statWait == nil {
-		c.statWait = NewDurationPercentageStat()
+	if c.statWorkRatio == nil {
+		c.statWorkRatio = NewDurationPercentageStat()
 	}
 
-	// Add wait stat
+	// Add work stat
 	s.AddStat(StatMetadata{
-		Description: "Percentage of time spent listening and waiting for new object",
-		Label:       "Wait ratio",
+		Description: "Percentage of time doing work",
+		Label:       "Work ratio",
+		Name:        StatNameWorkRatio,
 		Unit:        "%",
-	}, c.statWait)
+	}, c.statWorkRatio)
 }
 
 // BufferPool represents a *bytes.Buffer pool
