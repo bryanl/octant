@@ -106,7 +106,7 @@ github.com/golang/groupcache/lru
 github.com/golang/mock/gomock
 github.com/golang/mock/mockgen
 github.com/golang/mock/mockgen/model
-# github.com/golang/protobuf v1.4.2
+# github.com/golang/protobuf v1.4.3
 ## explicit
 github.com/golang/protobuf/internal/gengogrpc
 github.com/golang/protobuf/proto
@@ -129,7 +129,7 @@ github.com/google/gofuzz
 # github.com/google/uuid v1.1.2
 ## explicit
 github.com/google/uuid
-# github.com/googleapis/gnostic v0.5.1
+# github.com/googleapis/gnostic v0.5.3
 ## explicit
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
@@ -355,7 +355,7 @@ google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20200624020401-64a14ca9d1ad
+# google.golang.org/genproto v0.0.0-20201019141844-1ed22bb0c154
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.32.0
 ## explicit
