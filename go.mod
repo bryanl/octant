@@ -19,7 +19,7 @@ require (
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/gobwas/glob v0.2.3
 	github.com/golang/mock v1.4.4
-	github.com/golang/protobuf v1.4.2
+	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.2
 	github.com/googleapis/gnostic v0.5.1
 	github.com/gorilla/handlers v1.5.1
@@ -51,7 +51,7 @@ require (
 	google.golang.org/protobuf v1.25.0
 	k8s.io/api v0.19.0-alpha.3
 	k8s.io/apiextensions-apiserver v0.19.0-alpha.3
-	k8s.io/apimachinery v0.19.0-beta.2
+	k8s.io/apimachinery v0.20.0-beta.2
 	k8s.io/client-go v0.19.0-alpha.3
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.19.0-alpha.3
