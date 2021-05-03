@@ -13,8 +13,8 @@ import (
 // Versions
 const (
 	DefaultAcceptTCPTimeout   = 30 * time.Second
-	DefaultVersionAstilectron = "0.41.0"
-	DefaultVersionElectron    = "7.1.10"
+	DefaultVersionAstilectron = "0.47.0"
+	DefaultVersionElectron    = "11.4.3"
 )
 
 // Misc vars
@@ -28,14 +28,15 @@ var (
 
 // App event names
 const (
-	EventNameAppClose         = "app.close"
-	EventNameAppCmdQuit       = "app.cmd.quit" // Sends an event to Electron to properly quit the app
-	EventNameAppCmdStop       = "app.cmd.stop" // Cancel the context which results in exiting abruptly Electron's app
-	EventNameAppCrash         = "app.crash"
-	EventNameAppErrorAccept   = "app.error.accept"
-	EventNameAppEventReady    = "app.event.ready"
-	EventNameAppNoAccept      = "app.no.accept"
-	EventNameAppTooManyAccept = "app.too.many.accept"
+	EventNameAppClose               = "app.close"
+	EventNameAppCmdQuit             = "app.cmd.quit" // Sends an event to Electron to properly quit the app
+	EventNameAppCmdStop             = "app.cmd.stop" // Cancel the context which results in exiting abruptly Electron's app
+	EventNameAppCrash               = "app.crash"
+	EventNameAppErrorAccept         = "app.error.accept"
+	EventNameAppEventReady          = "app.event.ready"
+	EventNameAppEventSecondInstance = "app.event.second.instance"
+	EventNameAppNoAccept            = "app.no.accept"
+	EventNameAppTooManyAccept       = "app.too.many.accept"
 )
 
 // Astilectron represents an object capable of interacting with Astilectron
@@ -64,6 +65,7 @@ type Options struct {
 	AppName            string
 	AppIconDarwinPath  string // Darwin systems requires a specific .icns file
 	AppIconDefaultPath string
+	CustomElectronPath string
 	BaseDirectoryPath  string
 	DataDirectoryPath  string
 	ElectronSwitches   []string
